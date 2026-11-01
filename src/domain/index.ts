@@ -29,23 +29,39 @@ function kiemTraTrongLuoi(problem: GridProblem, position: Position, ten: string)
   }
 }
 
+function coTuong(walls: ReadonlySet<CellId>, cellId: CellId): boolean {
+  try {
+    return walls.has(cellId);
+  } catch {
+    throw new Error('Không thể kiểm tra Cell ID trong danh sách tường');
+  }
+}
+
 export function kiemTraBanDo(problem: GridProblem): void {
   if (!problem || !Number.isInteger(problem.rows) || problem.rows < 1 || problem.rows > 20 ||
       !Number.isInteger(problem.cols) || problem.cols < 1 || problem.cols > 20) {
     throw new Error('Kích thước bản đồ phải là số nguyên từ 1 đến 20');
   }
-  if (!(problem.walls instanceof Set)) {
-    throw new Error('Danh sách tường phải là một Set các Cell ID');
+  const walls = problem.walls;
+  if (!walls || !Number.isSafeInteger(walls.size) || walls.size < 0 ||
+      typeof walls.has !== 'function' || typeof walls.forEach !== 'function' ||
+      typeof walls.entries !== 'function' || typeof walls.keys !== 'function' ||
+      typeof walls.values !== 'function' || typeof walls[Symbol.iterator] !== 'function') {
+    throw new Error('Danh sách tường phải có cấu trúc ReadonlySet các Cell ID');
   }
-  for (const wall of problem.walls) {
-    kiemTraTrongLuoi(problem, docCellId(wall), 'Tường');
+  try {
+    for (const wall of walls) {
+      kiemTraTrongLuoi(problem, docCellId(wall), 'Tường');
+    }
+  } catch (error) {
+    throw new Error(`Không thể duyệt danh sách tường: ${error instanceof Error ? error.message : String(error)}`);
   }
   kiemTraTrongLuoi(problem, problem.start, 'Start');
   kiemTraTrongLuoi(problem, problem.goal, 'Goal');
-  if (problem.walls.has(taoCellId(problem.start))) {
+  if (coTuong(walls, taoCellId(problem.start))) {
     throw new Error('Start không được nằm trên tường');
   }
-  if (problem.walls.has(taoCellId(problem.goal))) {
+  if (coTuong(walls, taoCellId(problem.goal))) {
     throw new Error('Goal không được nằm trên tường');
   }
 }
@@ -53,7 +69,7 @@ export function kiemTraBanDo(problem: GridProblem): void {
 export function layLangGieng(problem: GridProblem, position: Position): readonly Position[] {
   kiemTraBanDo(problem);
   kiemTraTrongLuoi(problem, position, 'Vị trí');
-  if (problem.walls.has(taoCellId(position))) {
+  if (coTuong(problem.walls, taoCellId(position))) {
     throw new Error('Vị trí không được nằm trên tường');
   }
   const { row, col } = position;
@@ -61,5 +77,5 @@ export function layLangGieng(problem: GridProblem, position: Position): readonly
     { row: row - 1, col }, { row, col: col + 1 },
     { row: row + 1, col }, { row, col: col - 1 },
   ].filter((neighbor) => neighbor.row >= 0 && neighbor.row < problem.rows &&
-    neighbor.col >= 0 && neighbor.col < problem.cols && !problem.walls.has(taoCellId(neighbor)));
+    neighbor.col >= 0 && neighbor.col < problem.cols && !coTuong(problem.walls, taoCellId(neighbor)));
 }

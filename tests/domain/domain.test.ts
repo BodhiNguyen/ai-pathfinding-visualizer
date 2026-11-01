@@ -24,6 +24,29 @@ describe('Cell ID', () => {
 });
 
 describe('kiểm tra bản đồ', () => {
+  it('chấp nhận Set rỗng và ReadonlySet có cấu trúc tương thích', () => {
+    const backing = new Set(['0,1']);
+    const walls: ReadonlySet<string> = {
+      get size() { return backing.size; },
+      has: backing.has.bind(backing),
+      forEach: backing.forEach.bind(backing),
+      entries: backing.entries.bind(backing),
+      keys: backing.keys.bind(backing),
+      values: backing.values.bind(backing),
+      [Symbol.iterator]: backing[Symbol.iterator].bind(backing),
+    };
+    expect(walls).not.toBeInstanceOf(Set);
+    expect(() => kiemTraBanDo(map({ walls: new Set<string>() }))).not.toThrow();
+    expect(() => kiemTraBanDo(map({ walls }))).not.toThrow();
+    expect(layLangGieng(map({ walls }), { row: 0, col: 0 })).toEqual([{ row: 1, col: 0 }]);
+  });
+  it('từ chối cấu trúc tường sai và báo lỗi khi thao tác thất bại', () => {
+    const invalid = { has: () => false } as unknown as ReadonlySet<string>;
+    expect(() => kiemTraBanDo(map({ walls: invalid }))).toThrowError(/tường/i);
+    const broken = new Set<string>();
+    broken.has = () => { throw new Error('failed'); };
+    expect(() => kiemTraBanDo(map({ walls: broken }))).toThrowError(/tường/i);
+  });
   it('chấp nhận kích thước biên và start trùng goal', () => {
     expect(() => kiemTraBanDo(map({ rows: 1, cols: 1, goal: { row: 0, col: 0 } }))).not.toThrow();
     expect(() => kiemTraBanDo(map({ rows: 20, cols: 20, walls: new Set(['19,19']) }))).not.toThrow();
