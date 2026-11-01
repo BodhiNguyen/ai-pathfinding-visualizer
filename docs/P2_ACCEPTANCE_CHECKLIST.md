@@ -1,17 +1,22 @@
 # P2 — Checklist nghiệm thu
 
-Chưa nghiệm thu: tất cả mục dưới đây đang chờ thực hiện. Hợp đồng và quy ước có thẩm quyền ở `01_REQUIREMENTS.md`; ca kiểm thử chi tiết ở `03_TEST_PLAN.md`. P2 chỉ hoàn tất khi trưởng nhóm kiểm tra bằng chứng và duyệt.
+Domain đã được trưởng nhóm nghiệm thu **APPROVED**; các mục TV02, TV03 và tích hợp vẫn chờ thực hiện và nghiệm thu. Hợp đồng và quy ước có thẩm quyền ở `01_REQUIREMENTS.md`; ca kiểm thử chi tiết ở `03_TEST_PLAN.md`. P2 chỉ hoàn tất khi trưởng nhóm kiểm tra đầy đủ bằng chứng và duyệt.
 
 ## Điều kiện trước khi triển khai
 
 - [x] Trưởng nhóm duyệt kế hoạch có điều kiện và phân quyền; API, playback và phương án kiểm thử được ghi tại `P2_DECISION.md` và `P2_API_CONTRACT.md`.
-- [ ] TV01 kiểm tra, build/test và tạo baseline chung hợp lệ trước khi tách nhánh.
+- [x] TV01 kiểm tra, build/test và tạo baseline chung hợp lệ trước khi tách nhánh. Baseline và API freeze: `0b7d8ca`.
 - [ ] Mỗi nhánh xuất phát từ cùng commit được chia sẻ; thay đổi file chung chỉ qua đầu mối TV01.
 
 ## TV01 — Domain
 
-- [ ] ID `row,col` chuyển đổi đúng và kiểm tra ID sai; tọa độ nguyên trong lưới, kích thước mỗi chiều 1–20, tường hợp lệ, start/goal không nằm trên tường; cho phép start trùng goal. Đầu vào sai báo lỗi mô tả.
-- [ ] Láng giềng chỉ gồm ô hợp lệ, không là tường, theo thứ tự lên/phải/xuống/trái; unit test biên, tường, kích thước và dữ liệu sai đạt.
+- [x] ID `row,col` chuyển đổi đúng và kiểm tra ID sai; tọa độ nguyên trong lưới, kích thước mỗi chiều 1–20, tường hợp lệ, start/goal không nằm trên tường; cho phép start trùng goal. Đầu vào sai báo lỗi mô tả.
+- [x] Láng giềng chỉ gồm ô hợp lệ, không là tường, theo thứ tự lên/phải/xuống/trái; unit test biên, tường, kích thước và dữ liệu sai đạt.
+
+Bằng chứng nghiệm thu: PR #1 đã merge vào `main` tại `f88edd2`; build **PASSED**, test **43/43 PASSED**, tuân thủ contract **APPROVED** theo thông báo nghiệm thu. Hai khuyến nghị **MINOR** còn lại đều **non-blocking**:
+
+- `DOMAIN-MINOR-01`: `layLangGieng()` xác thực lại toàn bộ bản đồ mỗi lần gọi; chỉ tối ưu nếu cần.
+- `DOMAIN-MINOR-02`: Có thể bổ sung runtime tests cho `undefined` và object thiếu thuộc tính; không chặn MVP.
 
 ## TV02 — Algorithms
 
