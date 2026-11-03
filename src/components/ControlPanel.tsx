@@ -78,7 +78,7 @@ export function ControlPanel({
                 >
                   <strong>{algo.shortName}</strong>
                   <span className="seg-sub">
-                    {algo.isOptimalOnUnitGrid ? 'Tối ưu' : 'Không tối ưu'}
+                    {algo.isOptimalOnUnitGrid ? 'Tối ưu' : 'Không bảo đảm tối ưu'}
                   </span>
                 </button>
               );

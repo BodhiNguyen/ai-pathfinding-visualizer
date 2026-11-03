@@ -7,14 +7,78 @@ import {
   type DerivedPlaybackView,
 } from '../app/playbackState';
 
-export interface GridCanvasProps {
-  readonly problem: GridProblem;
-  readonly playbackView: DerivedPlaybackView;
-  readonly editMode: EditToolMode;
+export interface GridCellActionCallbacks {
   readonly onToggleWall: (position: Position) => void;
   readonly onPaintWall: (position: Position, shouldBeWall: boolean) => void;
   readonly onPlaceStart: (position: Position) => void;
   readonly onPlaceGoal: (position: Position) => void;
+}
+
+export interface GridCanvasProps extends GridCellActionCallbacks {
+  readonly problem: GridProblem;
+  readonly playbackView: DerivedPlaybackView;
+  readonly editMode: EditToolMode;
+}
+
+export function triggerSingleCellAction(
+  cell: Pick<CellVisualInfo, 'row' | 'col'>,
+  editMode: EditToolMode,
+  callbacks: GridCellActionCallbacks,
+): void {
+  const position: Position = { row: cell.row, col: cell.col };
+  if (editMode === 'wall') {
+    callbacks.onToggleWall(position);
+  } else if (editMode === 'start') {
+    callbacks.onPlaceStart(position);
+  } else {
+    callbacks.onPlaceGoal(position);
+  }
+}
+
+export function beginCellMouseDrag(
+  cell: Pick<CellVisualInfo, 'row' | 'col' | 'isWall'>,
+  editMode: EditToolMode,
+  mouseButton: number,
+  callbacks: GridCellActionCallbacks,
+): boolean | null {
+  if (mouseButton !== 0) {
+    return null;
+  }
+  triggerSingleCellAction(cell, editMode, callbacks);
+  return editMode === 'wall' ? !cell.isWall : null;
+}
+
+export function continueCellMouseDrag(
+  cell: Pick<CellVisualInfo, 'row' | 'col'>,
+  editMode: EditToolMode,
+  dragPaintValue: boolean | null,
+  mouseButtons: number,
+  callbacks: GridCellActionCallbacks,
+): boolean | null {
+  if (editMode !== 'wall' || dragPaintValue === null) {
+    return null;
+  }
+  if ((mouseButtons & 1) !== 1) {
+    return null;
+  }
+  callbacks.onPaintWall({ row: cell.row, col: cell.col }, dragPaintValue);
+  return dragPaintValue;
+}
+
+export function activateCellByKeyboard(
+  key: string,
+  cell: Pick<CellVisualInfo, 'row' | 'col'>,
+  editMode: EditToolMode,
+  callbacks: GridCellActionCallbacks,
+  isRepeat = false,
+): { readonly handled: boolean; readonly nextDragPaintValue: null } {
+  if (key !== 'Enter' && key !== ' ') {
+    return { handled: false, nextDragPaintValue: null };
+  }
+  if (!isRepeat) {
+    triggerSingleCellAction(cell, editMode, callbacks);
+  }
+  return { handled: true, nextDragPaintValue: null };
 }
 
 function buildCellTooltip(cell: CellVisualInfo): string {
@@ -55,6 +119,17 @@ export function GridCanvas({
 }: GridCanvasProps) {
   const [dragPaintValue, setDragPaintValue] = useState<boolean | null>(null);
 
+  const actionCallbacks: GridCellActionCallbacks = {
+    onToggleWall,
+    onPaintWall,
+    onPlaceStart,
+    onPlaceGoal,
+  };
+
+  useEffect(() => {
+    setDragPaintValue(null);
+  }, [editMode]);
+
   useEffect(() => {
     function stopDragging() {
       setDragPaintValue(null);
@@ -62,25 +137,6 @@ export function GridCanvas({
     window.addEventListener('mouseup', stopDragging);
     return () => window.removeEventListener('mouseup', stopDragging);
   }, []);
-
-  function handleCellMouseDown(cell: CellVisualInfo) {
-    const position: Position = { row: cell.row, col: cell.col };
-    if (editMode === 'wall') {
-      const targetWallState = !cell.isWall;
-      setDragPaintValue(targetWallState);
-      onToggleWall(position);
-    } else if (editMode === 'start') {
-      onPlaceStart(position);
-    } else {
-      onPlaceGoal(position);
-    }
-  }
-
-  function handleCellMouseEnter(cell: CellVisualInfo) {
-    if (editMode === 'wall' && dragPaintValue !== null) {
-      onPaintWall({ row: cell.row, col: cell.col }, dragPaintValue);
-    }
-  }
 
   const isCompact = problem.cols > 14 || problem.rows > 14;
   const colIndices = Array.from({ length: problem.cols }, (_, idx) => idx);
@@ -158,14 +214,42 @@ export function GridCanvas({
                   title={buildCellTooltip(cell)}
                   aria-label={buildCellTooltip(cell)}
                   onMouseDown={(e) => {
+                    if (e.button !== 0) {
+                      return;
+                    }
                     e.preventDefault();
-                    handleCellMouseDown(cell);
+                    e.currentTarget.focus();
+                    const nextDrag = beginCellMouseDrag(
+                      cell,
+                      editMode,
+                      e.button,
+                      actionCallbacks,
+                    );
+                    setDragPaintValue(nextDrag);
                   }}
-                  onMouseEnter={() => handleCellMouseEnter(cell)}
+                  onMouseEnter={(e) => {
+                    const nextDrag = continueCellMouseDrag(
+                      cell,
+                      editMode,
+                      dragPaintValue,
+                      e.buttons,
+                      actionCallbacks,
+                    );
+                    if (nextDrag !== dragPaintValue) {
+                      setDragPaintValue(nextDrag);
+                    }
+                  }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
+                    const outcome = activateCellByKeyboard(
+                      e.key,
+                      cell,
+                      editMode,
+                      actionCallbacks,
+                      e.repeat,
+                    );
+                    if (outcome.handled) {
                       e.preventDefault();
-                      handleCellMouseDown(cell);
+                      setDragPaintValue(outcome.nextDragPaintValue);
                     }
                   }}
                 >

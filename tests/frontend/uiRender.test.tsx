@@ -35,6 +35,8 @@ describe('UI Components — kiểm tra kết xuất giao diện không lỗi', (
     expect(html).toContain('UCS');
     expect(html).toContain('Greedy');
     expect(html).toContain('A*');
+    expect(html).toContain('Không bảo đảm tối ưu');
+    expect(html).not.toContain('Không tối ưu');
   });
 
   it('GridCanvas, PlaybackControls và StatsPanel kết xuất đúng trạng thái giữa chừng và kết thúc', () => {
@@ -161,6 +163,8 @@ describe('UI Components — kiểm tra kết xuất giao diện không lỗi', (
     );
     expect((tableHtml.match(/Xem trên lưới/g) ?? []).length).toBe(5);
     expect(tableHtml).toContain('Ngắn nhất');
+    expect(tableHtml).toContain('Không bảo đảm tối ưu');
+    expect(tableHtml).not.toContain('Không tối ưu');
 
     const explainHtml = renderToStaticMarkup(
       <AlgorithmExplanation selectedAlgorithm="dfs" onSelectAlgorithm={noop} />,

@@ -109,7 +109,7 @@ export function ComparisonTable({
                           algo.isOptimalOnUnitGrid ? 'text-optimal' : 'text-nonoptimal'
                         }
                       >
-                        {algo.isOptimalOnUnitGrid ? 'Có' : 'Không bảo đảm'}
+                        {algo.isOptimalOnUnitGrid ? 'Có' : 'Không bảo đảm tối ưu'}
                       </span>
                     </td>
                     <td>

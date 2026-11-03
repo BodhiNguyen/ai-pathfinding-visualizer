@@ -157,7 +157,7 @@ body {
 
 .segmented-buttons {
   display: grid;
-  grid-template-columns: repeat(5, minmax(110px, 1fr));
+  grid-template-columns: repeat(5, minmax(132px, 1fr));
   gap: 8px;
 }
 
@@ -189,7 +189,9 @@ body {
 
 .seg-sub {
   font-size: 0.72rem;
-  opacity: 0.86;
+  opacity: 0.88;
+  text-align: center;
+  line-height: 1.25;
 }
 
 .tool-row,
@@ -376,6 +378,12 @@ button:disabled {
   transform: scale(1.05);
   z-index: 2;
   border-color: #475569;
+}
+
+.grid-cell:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+  z-index: 3;
 }
 
 .grid-cell--wall {
@@ -862,6 +870,6 @@ button:disabled {
   }
 
   .segmented-buttons {
-    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
   }
 }
