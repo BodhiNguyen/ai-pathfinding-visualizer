@@ -1,188 +1,255 @@
-import { describe, it, expect } from 'vitest';
-import { GridProblem, CellId, Position } from '../src/domain/types';
-import { timBFS, timDFS, timUCS, timGreedy, timAStar, layThuatToan } from '../src/algorithms/index';
-import { taoCellId, docCellId } from '../src/domain/index';
+import { describe, expect, it } from 'vitest';
+import type { AlgorithmId, GridProblem, SearchResult } from '../src/domain/types';
+import { timBFS, timDFS, timUCS, timGreedy, timAStar, layThuatToan } from '../src/algorithms';
 
-describe('P2-TV02 ALG-004 Final Test Hardening & Verification', () => {
-  // Bộ helper sinh lưới mini-grid deterministic dễ tính toán lý thuyết
-  const taoLuoiTrong = (rows = 3, cols = 3, start: Position = { row: 0, col: 0 }, goal: Position = { row: 2, col: 2 }): GridProblem => ({
-    rows,
-    cols,
-    walls: new Set<CellId>(),
-    start,
-    goal,
-  });
+const algorithms = [
+  ['bfs', timBFS], ['dfs', timDFS], ['ucs', timUCS],
+  ['greedy', timGreedy], ['astar', timAStar],
+] as const;
 
-  const tinhManhattan = (pos: Position, goal: Position): number => {
-    return Math.abs(pos.row - goal.row) + Math.abs(pos.col - goal.col);
-  };
+const grid = (overrides: Partial<GridProblem> = {}): GridProblem => ({
+  rows: 3, cols: 3, walls: new Set(),
+  start: { row: 0, col: 0 }, goal: { row: 2, col: 2 }, ...overrides,
+});
 
-  // Hàm helper xác thực tính liên tục và đúng đắn của đường đi tìm được
-  const xacThucDuongDiHoplid = (problem: GridProblem, path: CellId[]) => {
-    if (path.length === 0) return;
-    expect(path[0]).toBe(taoCellId(problem.start));
-    expect(path[path.length - 1]).toBe(taoCellId(problem.goal));
-
-    for (let i = 0; i < path.length - 1; i++) {
-      const hienTai = docCellId(path[i]);
-      const tiepTheo = docCellId(path[i + 1]);
-
-      // Không được đè tường
-      expect(problem.walls.has(path[i])).toBe(false);
-      expect(problem.walls.has(path[i + 1])).toBe(false);
-
-      // Khoảng cách bước di chuyển bốn hướng bằng 1
-      const khoangCach = Math.abs(hienTai.row - tiepTheo.row) + Math.abs(hienTai.col - tiepTheo.col);
-      expect(khoangCach).toBe(1);
+function expectValidPath(problem: GridProblem, result: SearchResult) {
+  expect(result.found).toBe(true);
+  expect(result.path[0]).toBe(`${problem.start.row},${problem.start.col}`);
+  expect(result.path.at(-1)).toBe(`${problem.goal.row},${problem.goal.col}`);
+  expect(result.pathCost).toBe(result.path.length - 1);
+  expect(new Set(result.path).size).toBe(result.path.length);
+  for (const [index, id] of result.path.entries()) {
+    expect(id).toMatch(/^(0|[1-9]\d*),(0|[1-9]\d*)$/);
+    const [row, col] = id.split(',').map(Number);
+    expect(row).toBeLessThan(problem.rows);
+    expect(col).toBeLessThan(problem.cols);
+    expect(problem.walls.has(id)).toBe(false);
+    if (index > 0) {
+      const [prevRow, prevCol] = result.path[index - 1].split(',').map(Number);
+      expect(Math.abs(row - prevRow) + Math.abs(col - prevCol)).toBe(1);
     }
-  };
+  }
+}
 
-  describe('Phase 2 & 4 — Xác thực thứ tự ưu tiên Frontier và Tie-breaking', () => {
-    it('UCS Frontier Snapshot: Phải đảm bảo chi phí đường đi g(n) tăng dần', () => {
-      const problem = taoLuoiTrong(3, 3, { row: 0, col: 0 }, { row: 2, col: 2 });
-      const res = timUCS(problem);
-      expect(res.found).toBe(true);
-
-      res.steps.forEach(step => {
-        // gScore của các node trong frontier tại mỗi step phải tăng dần
-        const gValues = step.frontier.map(id => {
-          // Tính gScore thực tế dựa trên đường đi ngắn nhất từ start đến node đó trên lưới đồng chi phí
-          const pos = docCellId(id);
-          return pos.row + pos.col; // Vì start=(0,0) nên g(n) tối ưu trên lưới trống bằng row + col
-        });
-
-        for (let i = 0; i < gValues.length - 1; i++) {
-          expect(gValues[i]).toBeLessThanOrEqual(gValues[i + 1]);
-        }
-      });
-    });
-
-    it('Greedy Frontier Snapshot: Phải đảm bảo Manhattan h(n) tăng dần', () => {
-      const problem = taoLuoiTrong(3, 3, { row: 0, col: 0 }, { row: 2, col: 2 });
-      const res = timGreedy(problem);
-      expect(res.found).toBe(true);
-
-      res.steps.forEach(step => {
-        const hValues = step.frontier.map(id => tinhManhattan(docCellId(id), problem.goal));
-        for (let i = 0; i < hValues.length - 1; i++) {
-          expect(hValues[i]).toBeLessThanOrEqual(hValues[i + 1]);
-        }
-      });
-    });
-
-    it('A* Frontier Snapshot: Phải tuân thủ tổng chi phí f(n) = g(n) + h(n) tăng dần', () => {
-      const problem = taoLuoiTrong(3, 3, { row: 0, col: 0 }, { row: 2, col: 2 });
-      const res = timAStar(problem);
-      expect(res.found).toBe(true);
-
-      res.steps.forEach(step => {
-        const fValues = step.frontier.map(id => {
-          const pos = docCellId(id);
-          const g = pos.row + pos.col;
-          const h = tinhManhattan(pos, problem.goal);
-          return g + h;
-        });
-
-        for (let i = 0; i < fValues.length - 1; i++) {
-          expect(fValues[i]).toBeLessThanOrEqual(fValues[i + 1]);
-        }
-      });
-    });
+describe.each(algorithms)('%s contract', (id, search) => {
+  it('finds a valid path on a cyclic grid with multiple paths', () => {
+    const problem = grid();
+    const result = search(problem);
+    expect(result.algorithm).toBe(id);
+    expectValidPath(problem, result);
+    expect(result.expandedCount).toBe(result.steps.length);
+    expect(result.steps.map(step => step.current)).toEqual(result.steps.at(-1)?.explored);
+    expect(new Set(result.steps.map(step => step.current)).size).toBe(result.steps.length);
+    for (const step of result.steps) {
+      expect(new Set(step.frontier).size).toBe(step.frontier.length);
+      expect(step.frontier.every(cell => !step.explored.includes(cell))).toBe(true);
+    }
   });
 
-  describe('Phase 3 & 4 — Kiểm soát tính toàn vẹn Frontier của DFS', () => {
-    it('DFS Frontier Snapshot: Không duplicate, không chứa node đã explored, và thể hiện đúng LIFO', () => {
-      const problem = taoLuoiTrong(3, 3, { row: 0, col: 0 }, { row: 2, col: 2 });
-      const res = timDFS(problem);
-      expect(res.found).toBe(true);
-
-      res.steps.forEach(step => {
-        // 1. Không trùng lặp
-        const uniqueSet = new Set(step.frontier);
-        expect(step.frontier.length).toBe(uniqueSet.size);
-
-        // 2. Không chứa node đã explored
-        step.frontier.forEach(id => {
-          expect(step.explored.includes(id)).toBe(false);
-        });
-      });
-    });
+  it('handles start equal to goal without expanding neighbors', () => {
+    const result = search(grid({ start: { row: 1, col: 1 }, goal: { row: 1, col: 1 } }));
+    expect(result).toEqual({ algorithm: id, found: true, path: ['1,1'], pathCost: 0,
+      expandedCount: 1, steps: [{ current: '1,1', frontier: [], explored: ['1,1'] }] });
   });
 
-  describe('Step 3 — Đo lường chất lượng & Tính tối ưu của 5 thuật toán', () => {
-    it('Xác thực tính hợp lệ, chi phí và cấu trúc snapshot của cả 5 thuật toán', () => {
-      const problem = taoLuoiTrong(3, 3, { row: 0, col: 0 }, { row: 2, col: 2 });
-      const thuatToans = [timBFS, timDFS, timUCS, timGreedy, timAStar];
-
-      thuatToans.forEach(tim => {
-        const res = tim(problem);
-        expect(res.found).toBe(true);
-        xacThucDuongDiHoplid(problem, res.path);
-
-        // Đo lường ràng buộc metrics hệ thống
-        expect(res.pathCost).toBe(res.path.length - 1);
-        expect(res.expandedCount).toBe(res.steps.length);
-      });
-    });
-
-    it('BFS, UCS, và A* bắt buộc phải tìm ra đường đi ngắn nhất tối ưu (pathCost = 4)', () => {
-      const problem = taoLuoiTrong(3, 3, { row: 0, col: 0 }, { row: 2, col: 2 });
-      expect(timBFS(problem).pathCost).toBe(4);
-      expect(timUCS(problem).pathCost).toBe(4);
-      expect(timAStar(problem).pathCost).toBe(4);
-    });
-
-    it('Xử lý biên an toàn: Start trùng với Goal', () => {
-      const problem = taoLuoiTrong(3, 3, { row: 1, col: 1 }, { row: 1, col: 1 });
-      const thuatToans = [timBFS, timDFS, timUCS, timGreedy, timAStar];
-
-      thuatToans.forEach(tim => {
-        const res = tim(problem);
-        expect(res.found).toBe(true);
-        expect(res.path).toEqual(['1,1']);
-        expect(res.pathCost).toBe(0);
-        expect(res.expandedCount).toBe(1);
-      });
-    });
-
-    it('Xử lý biên an toàn: Bản đồ không có đường đi', () => {
-      const problem: GridProblem = {
-        rows: 3,
-        cols: 3,
-        walls: new Set<CellId>(['0,1', '1,0']),
-        start: { row: 0, col: 0 },
-        goal: { row: 2, col: 2 },
-      };
-
-      const thuatToans = [timBFS, timDFS, timUCS, timGreedy, timAStar];
-      thuatToans.forEach(tim => {
-        const res = tim(problem);
-        expect(res.found).toBe(false);
-        expect(res.path).toEqual([]);
-        expect(res.pathCost).toBeNull();
-      });
-    });
+  it('reports no path after exhausting the reachable component', () => {
+    const result = search(grid({ walls: new Set(['0,1', '1,0']) }));
+    expect(result).toEqual({ algorithm: id, found: false, path: [], pathCost: null,
+      expandedCount: 1, steps: [{ current: '0,0', frontier: [], explored: ['0,0'] }] });
   });
 
-  describe('Step 5 — Contract Regression & Registry Lookup', () => {
-    it('Bộ đăng ký trả đúng hàm và ném lỗi đúng đặc tả khi sai ID', () => {
-      expect(layThuatToan('bfs')).toBe(timBFS);
-      expect(layThuatToan('dfs')).toBe(timDFS);
-      expect(layThuatToan('ucs')).toBe(timUCS);
-      expect(layThuatToan('greedy')).toBe(timGreedy);
-      expect(layThuatToan('astar')).toBe(timAStar);
-      expect(() => layThuatToan('invalid-algo-id' as any)).toThrow();
-    });
+  it('rejects invalid grids with an error', () => {
+    for (const problem of [grid({ rows: 0 }), grid({ walls: new Set(['0,0']) }),
+      grid({ goal: { row: 3, col: 0 } }), grid({ walls: new Set(['bad']) })]) {
+      expect(() => search(problem)).toThrowError(/.+/);
+    }
+  });
 
-    it('Từ chối bản đồ sai cấu trúc hoặc thiếu/sai điểm biên', () => {
-      const problemLoi = {
-        rows: 3,
-        cols: 3,
-        walls: new Set<CellId>(),
-        start: { row: -1, col: 0 }, // Sai tọa độ biên
-        goal: { row: 2, col: 2 }
-      };
-      expect(() => timBFS(problemLoi as any)).toThrow();
-    });
+  it('does not mutate the problem or share mutable snapshots', () => {
+    const problem = grid({ walls: new Set(['1,1']) });
+    const before = structuredClone(problem);
+    const result = search(problem);
+    expect(problem).toEqual(before);
+    expect(result.steps.length).toBeGreaterThan(1);
+    const second = structuredClone(result.steps[1]);
+    (result.steps[0].frontier as string[]).push('sentinel');
+    (result.steps[0].explored as string[]).push('sentinel');
+    expect(result.steps[1]).toEqual(second);
+    expect(problem).toEqual(before);
+    expectValidPath(problem, search(problem));
+  });
+
+  it('exhausts a multi-cell reachable component when the goal is blocked off', () => {
+    const problem = grid({ rows: 3, cols: 4, goal: { row: 1, col: 3 },
+      walls: new Set(['0,2', '1,2', '2,2']) });
+    const reachable = ['0,0', '0,1', '1,0', '1,1', '2,0', '2,1'];
+    const result = search(problem);
+    const expanded = result.steps.map(step => step.current);
+    expect(result.found).toBe(false);
+    expect(result.path).toEqual([]);
+    expect(result.pathCost).toBeNull();
+    expect(result.expandedCount).toBe(reachable.length);
+    expect(result.expandedCount).toBe(result.steps.length);
+    expect(new Set(expanded).size).toBe(reachable.length);
+    expect([...expanded].sort()).toEqual([...reachable].sort());
+  });
+
+  it('keeps every snapshot array independent in both directions', () => {
+    const problem = grid({ walls: new Set(['1,1']) });
+    const before = structuredClone(problem);
+    const { steps } = search(problem);
+    expect(steps.length).toBeGreaterThan(2);
+    const arrays = steps.flatMap(step => [step.frontier, step.explored]);
+    expect(new Set(arrays).size).toBe(arrays.length);
+
+    for (const index of [0, steps.length - 1]) {
+      const otherSnapshots = steps.map(step => structuredClone(step));
+      (steps[index].frontier as string[]).push('frontier sentinel');
+      (steps[index].explored as string[]).push('explored sentinel');
+      steps.forEach((step, otherIndex) => {
+        if (otherIndex !== index) expect(step).toEqual(otherSnapshots[otherIndex]);
+      });
+    }
+    expect(problem).toEqual(before);
+  });
+});
+
+describe('algorithm ordering and cost', () => {
+  it.each([['bfs', timBFS], ['ucs', timUCS], ['astar', timAStar]] as const)(
+    '%s chooses the independently bounded shortest route over a longer branch', (_id, search) => {
+      const problem = grid({ rows: 5, cols: 5, start: { row: 2, col: 0 },
+        goal: { row: 2, col: 4 }, walls: new Set(['2,1', '2,2', '2,3', '1,2']) });
+      const result = search(problem);
+      // The direct row is blocked, so at least one vertical move each way is
+      // needed in addition to four horizontal moves. Row 3 realizes cost 6.
+      // The upper branch, encountered first in neighbor order, must reach row 0
+      // to cross column 2 and therefore has cost at least 8.
+      expect(result.found).toBe(true);
+      expectValidPath(problem, result);
+      expect(result.pathCost).toBe(6);
+      expect(result.pathCost).toBeLessThan(8);
+      expect(result.expandedCount).toBe(result.steps.length);
+    },
+  );
+
+  it('BFS takes FIFO, with neighbors enqueued up, right, down, left', () => {
+    const result = timBFS(grid({ start: { row: 1, col: 1 }, goal: { row: 2, col: 2 } }));
+    expect(result.steps[0].frontier).toEqual(['0,1', '1,2', '2,1', '1,0']);
+    expect(result.steps.slice(0, 5).map(step => step.current)).toEqual(['1,1', '0,1', '1,2', '2,1', '1,0']);
+  });
+
+  it('DFS takes LIFO in neighbor order and removes duplicate and stale frontier entries', () => {
+    const result = timDFS(grid({ goal: { row: 2, col: 0 } }));
+    expect(result.steps.slice(0, 5).map(step => step.current)).toEqual(['0,0', '0,1', '0,2', '1,2', '2,2']);
+    expect(result.steps[4].frontier).toEqual(['2,1', '1,1', '1,0']);
+    for (const step of result.steps) {
+      expect(new Set(step.frontier).size).toBe(step.frontier.length);
+      expect(step.frontier.every(cell => !step.explored.includes(cell))).toBe(true);
+    }
+  });
+
+  it('UCS orders by g and preserves FIFO for equal costs', () => {
+    const result = timUCS(grid({ start: { row: 1, col: 1 }, goal: { row: 2, col: 2 } }));
+    expect(result.steps[0].frontier).toEqual(['0,1', '1,2', '2,1', '1,0']);
+    expect(result.steps[1].frontier).toEqual(['1,2', '2,1', '1,0', '0,2', '0,0']);
+    expect(result.steps.slice(0, 5).map(step => step.current)).toEqual(['1,1', '0,1', '1,2', '2,1', '1,0']);
+  });
+
+  it('Greedy orders by Manhattan h and uses FIFO for equal h', () => {
+    const result = timGreedy(grid({ start: { row: 1, col: 1 }, goal: { row: 2, col: 2 } }));
+    // h=1 for right/down, h=3 for up/left; each equal pair keeps insertion order.
+    expect(result.steps[0].frontier).toEqual(['1,2', '2,1', '0,1', '1,0']);
+    expect(result.steps[1].frontier).toEqual(['2,2', '2,1', '0,2', '0,1', '1,0']);
+    expect(result.steps[2].current).toBe('2,2');
+  });
+
+  it('A* orders by g+h and uses FIFO when f ties', () => {
+    const result = timAStar(grid({ start: { row: 1, col: 1 }, goal: { row: 2, col: 2 } }));
+    // Right/down have f=2; up/left have f=4. The new goal also has f=2.
+    expect(result.steps[0].frontier).toEqual(['1,2', '2,1', '0,1', '1,0']);
+    expect(result.steps[1].frontier).toEqual(['2,1', '2,2', '0,1', '1,0', '0,2']);
+    expect(result.steps[2].current).toBe('2,1');
+  });
+
+  it('A* replaces a worse frontier route with a better one', () => {
+    // .....   The first route to N=(1,2) is S-(3,0)-(3,1)-(3,2)-
+    // ..N..   (2,2)-N, g=5. The later route S-(1,0)-(1,1)-N has g=3.
+    // S#.#.   Goal (3,4) can only be entered from (2,4); the wall at
+    // ...#G   (2,1) forces a detour of at least two steps to get there.
+    // ...#.   Thus the shortest cost is 7, realized by the path below.
+    const problem = grid({ rows: 5, cols: 5, start: { row: 2, col: 0 },
+      goal: { row: 3, col: 4 }, walls: new Set(['2,1', '2,3', '3,3', '4,3']) });
+    const result = timAStar(problem);
+    expectValidPath(problem, result);
+    expect(result.path).toEqual(['2,0', '1,0', '1,1', '1,2', '1,3', '1,4', '2,4', '3,4']);
+    expect(result.pathCost).toBe(7);
+
+    const steps = result.steps;
+    // (2,2) discovers N via the five-step route. N remains queued when
+    // (1,1) supplies the three-step route, moving N ahead of (0,0).
+    expect(steps[7].current).toBe('2,2');
+    expect(steps[7].frontier).toEqual(['4,2', '1,1', '0,0', '1,2']);
+    expect(steps[8].frontier).toEqual(['1,1', '0,0', '1,2']);
+    expect(steps[9].current).toBe('1,1');
+    expect(steps[9].frontier).toEqual(['1,2', '0,0', '0,1']);
+    expect(steps[10].current).toBe('1,2');
+    expect(result.expandedCount).toBe(steps.length);
+    expect(new Set(steps.map(step => step.current)).size).toBe(steps.length);
+    for (const step of steps) {
+      expect(new Set(step.frontier).size).toBe(step.frontier.length);
+    }
+
+    // Isolate the same goal so the search exhausts the frontier, including
+    // any obsolete entry left behind after the improvement.
+    const exhausted = timAStar({ ...problem, walls: new Set([...problem.walls, '2,4', '4,4']) });
+    expect(exhausted.found).toBe(false);
+    expect(exhausted.path).toEqual([]);
+    expect(exhausted.pathCost).toBeNull();
+    expect(exhausted.steps[7].current).toBe('2,2');
+    expect(exhausted.steps[9].current).toBe('1,1');
+    expect(exhausted.steps[9].frontier).toEqual(['1,2', '0,0', '0,1']);
+    expect(exhausted.steps.at(-1)?.frontier).toEqual([]);
+    expect(exhausted.steps.filter(step => step.current === '1,2')).toHaveLength(1);
+    expect(new Set(exhausted.steps.map(step => step.current)).size).toBe(exhausted.steps.length);
+    expect(exhausted.expandedCount).toBe(exhausted.steps.length);
+  });
+
+
+});
+
+describe('registry', () => {
+  it.each(algorithms)('maps %s to its implementation', (id, search) => {
+    expect(layThuatToan(id)).toBe(search);
+  });
+  it('rejects an unknown runtime ID', () => {
+    expect(() => layThuatToan('invalid' as AlgorithmId)).toThrowError(/.+/);
+  });
+});
+
+describe('frontier priority across an open grid', () => {
+  it('keeps UCS frontier in nondecreasing g order', () => {
+    const result = timUCS(grid());
+    for (const step of result.steps) {
+      const priorities = step.frontier.map(id => {
+        const [row, col] = id.split(',').map(Number);
+        return row + col;
+      });
+      for (let i = 1; i < priorities.length; i++) {
+        expect(priorities[i - 1]).toBeLessThanOrEqual(priorities[i]);
+      }
+    }
+  });
+
+  it('keeps Greedy frontier in nondecreasing Manhattan h order', () => {
+    const result = timGreedy(grid());
+    for (const step of result.steps) {
+      const priorities = step.frontier.map(id => {
+        const [row, col] = id.split(',').map(Number);
+        return Math.abs(2 - row) + Math.abs(2 - col);
+      });
+      for (let i = 1; i < priorities.length; i++) {
+        expect(priorities[i - 1]).toBeLessThanOrEqual(priorities[i]);
+      }
+    }
   });
 });
