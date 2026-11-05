@@ -26,7 +26,7 @@ describe('P2-TV02 ALG-004 Final Test Hardening & Verification', () => {
     for (let i = 0; i < path.length - 1; i++) {
       const hienTai = docCellId(path[i]);
       const tiepTheo = docCellId(path[i + 1]);
-      
+
       // Không được đè tường
       expect(problem.walls.has(path[i])).toBe(false);
       expect(problem.walls.has(path[i + 1])).toBe(false);
@@ -118,7 +118,7 @@ describe('P2-TV02 ALG-004 Final Test Hardening & Verification', () => {
         const res = tim(problem);
         expect(res.found).toBe(true);
         xacThucDuongDiHoplid(problem, res.path);
-        
+
         // Đo lường ràng buộc metrics hệ thống
         expect(res.pathCost).toBe(res.path.length - 1);
         expect(res.expandedCount).toBe(res.steps.length);
@@ -153,7 +153,7 @@ describe('P2-TV02 ALG-004 Final Test Hardening & Verification', () => {
         start: { row: 0, col: 0 },
         goal: { row: 2, col: 2 },
       };
-      
+
       const thuatToans = [timBFS, timDFS, timUCS, timGreedy, timAStar];
       thuatToans.forEach(tim => {
         const res = tim(problem);
