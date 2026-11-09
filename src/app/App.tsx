@@ -39,12 +39,13 @@ import {
   type LoadPlaybackMode,
 } from './playbackState';
 import './App.css';
+import { runRealSearch } from './realSearchService';
 
 export interface AppProps {
   readonly executor?: SearchExecutor;
 }
 
-export default function App({ executor = runMockSearch }: AppProps = {}) {
+export default function App({ executor = runRealSearch }: AppProps = {}) {
   const isMockMode = executor === runMockSearch;
 
   const [problem, setProblem] = useState<GridProblem>(() => createDefaultGridProblem());
