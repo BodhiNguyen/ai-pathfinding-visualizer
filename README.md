@@ -4,8 +4,6 @@
 
 **Repository:** https://github.com/BodhiNguyen/ai-pathfinding-visualizer
 
-> **Lưu ý phiên bản:** README mô tả phiên bản tích hợp P3 đã được kiểm thử trong bản sao cô lập. Trước khi sử dụng, cần bảo đảm nhánh/commit được checkout thực sự chứa mã P3; không mặc định nhánh `main` hiện đã có toàn bộ thay đổi.
-
 ## Tính năng
 
 - Tạo và chỉnh sửa lưới, tường, điểm bắt đầu (**Start**) và điểm đích (**Goal**).
@@ -39,7 +37,7 @@ Yêu cầu **Node.js** và **npm**. Môi trường tham chiếu đã sử dụng
 ```bash
 git clone https://github.com/BodhiNguyen/ai-pathfinding-visualizer.git
 cd ai-pathfinding-visualizer
-# Checkout nhánh/commit đã tích hợp P3 (nếu chưa nằm trên nhánh mặc định).
+git checkout main
 npm ci
 npm run dev
 ```
