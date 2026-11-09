@@ -343,8 +343,16 @@ export function runAllAlgorithmsComparison(
   problem: GridProblem,
   executor: SearchExecutor = runMockSearch,
 ): Record<AlgorithmId, MeasuredSearchResult> {
-  const entries = ALGORITHM_IDS.map(
-    (algorithmId) => [algorithmId, executor(problem, algorithmId)] as const,
-  );
+  // Capture once, then isolate each invocation even from a mutating executor.
+  const snapshot: GridProblem = {
+    rows: problem.rows, cols: problem.cols,
+    start: { ...problem.start }, goal: { ...problem.goal },
+    walls: new Set(problem.walls),
+  };
+  const entries = ALGORITHM_IDS.map((algorithmId) => [algorithmId, executor({
+    rows: snapshot.rows, cols: snapshot.cols,
+    start: { ...snapshot.start }, goal: { ...snapshot.goal },
+    walls: new Set(snapshot.walls),
+  }, algorithmId)] as const);
   return Object.fromEntries(entries) as Record<AlgorithmId, MeasuredSearchResult>;
 }
